@@ -4,7 +4,7 @@
   "description": "A lightweight, powerful javascript datetime picker",
   "scripts": {
     "build": "run-s build:pre build:build build:post",
-    "build:pre": "mkdir -p dist/themes",
+    "build:pre": "mkdirp dist/themes",
     "build:build": "ts-node build.ts",
     "build:post": "rm -f dist/index.d.ts",
     "start": "npm run build:build -- --dev",
@@ -35,6 +35,7 @@
     "jest": "22.2.1",
     "lint-staged": "^6.1.0",
     "magic-string": "^0.22.4",
+    "mkdirp": "latest",
     "npm-run-all": "^4.1.1",
     "prettier": "^1.10.2",
     "rollup": "^0.55.3",

@@ -1,0 +1,10 @@
+// calendar width calculation
+$daySize = 35px
+$padding = ($daySize/16) // 2.4375
+$dayMargin = 2px
+$daysWidth = ($daySize*7 + $dayMargin*14 + $padding*2 + 2) // 273 + 28 + 4.875 + 2
+$calendarWidth = $daysWidth
+
+$monthNavHeight ?= 24px
+$weekdaysHeight ?= 24px
+$timeHeight = 36px
