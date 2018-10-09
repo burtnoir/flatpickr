@@ -12,7 +12,7 @@ export interface Elements {
   mobileFormatStr?: string;
 
   selectedDateElem?: DayElement;
-  todayDateElem?: HTMLSpanElement;
+  todayDateElem?: DayElement;
 
   _positionElement: HTMLElement;
   weekdayContainer: HTMLDivElement;
@@ -25,11 +25,17 @@ export interface Elements {
   weekWrapper?: HTMLDivElement;
   weekNumbers?: HTMLDivElement;
 
-  oldCurMonth?: HTMLSpanElement;
-  navigationCurrentMonth: HTMLSpanElement;
+  // month nav
   monthNav: HTMLDivElement;
+
+  yearElements: HTMLInputElement[];
+  monthElements: HTMLSpanElement[];
+
+  // month nav getters
   currentYearElement: HTMLInputElement;
   currentMonthElement: HTMLSpanElement;
+
+  // month nav arrows
   _hidePrevMonthArrow: boolean;
   _hideNextMonthArrow: boolean;
   prevMonthNav: HTMLElement;
@@ -86,7 +92,7 @@ export type Instance = Elements &
     destroy: () => void;
     isEnabled: (date: DateOption, timeless?: boolean) => boolean;
     jumpToDate: (date?: DateOption) => void;
-    open: (e?: Event, positionElement?: HTMLElement) => void;
+    open: (e?: FocusEvent | MouseEvent, positionElement?: HTMLElement) => void;
     redraw: () => void;
     set: (
       option: keyof Options | { [k in keyof Options]?: Options[k] },
@@ -113,6 +119,7 @@ export type Instance = Elements &
       event: string;
       element: Element;
       handler: (e?: Event) => void;
+      options?: { capture?: boolean };
     }[];
 
     _bind: <E extends Element>(
@@ -129,6 +136,7 @@ export type Instance = Elements &
     _debouncedChange: () => void;
     __hideNextMonthArrow: boolean;
     __hidePrevMonthArrow: boolean;
+    _positionCalendar: (customPositionElement?: HTMLElement) => void;
 
     utils: {
       getDaysInMonth: (month?: number, year?: number) => number;
@@ -136,7 +144,7 @@ export type Instance = Elements &
   };
 
 export interface FlatpickrFn {
-  (selector: NodeList | HTMLElement | string, config: Options):
+  (selector: NodeList | HTMLElement | string, config?: Options):
     | Instance
     | Instance[];
   defaultConfig: ParsedOptions;

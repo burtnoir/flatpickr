@@ -44,20 +44,30 @@ function rangePlugin(config: Config = {}): Plugin {
           fp._setHoursFromDate(fp.selectedDates[1]);
           fp.jumpToDate(fp.selectedDates[1]);
         }
+
         [_firstInputFocused, _secondInputFocused] = [false, true];
+        fp.isOpen = false;
         fp.open(undefined, secondInput);
       });
 
-      fp._bind(secondInput, "keydown", (e: KeyboardEvent) => {
-        if ((e as KeyboardEvent).key === "Enter") {
-          fp.setDate(
-            [fp.selectedDates[0], secondInput.value],
-            true,
-            dateFormat
-          );
-          secondInput.click();
-        }
+      fp._bind(fp._input, ["focus", "click"], (e: FocusEvent) => {
+        e.preventDefault();
+        fp.isOpen = false;
+        fp.open();
       });
+
+      if (fp.config.allowInput)
+        fp._bind(secondInput, "keydown", (e: KeyboardEvent) => {
+          if ((e as KeyboardEvent).key === "Enter") {
+            fp.setDate(
+              [fp.selectedDates[0], secondInput.value],
+              true,
+              dateFormat
+            );
+            secondInput.click();
+          }
+        });
+
       if (!config.input)
         fp._input.parentNode &&
           fp._input.parentNode.insertBefore(secondInput, fp._input.nextSibling);
@@ -66,7 +76,7 @@ function rangePlugin(config: Config = {}): Plugin {
     const plugin = {
       onParseConfig() {
         fp.config.mode = "range";
-        fp.config.allowInput = true;
+
         dateFormat = fp.config.altInput
           ? fp.config.altFormat
           : fp.config.dateFormat;
@@ -75,8 +85,12 @@ function rangePlugin(config: Config = {}): Plugin {
       onReady() {
         createSecondInput();
         fp.config.ignoredFocusElements.push(secondInput);
-        fp._input.removeAttribute("readonly");
-        secondInput.removeAttribute("readonly");
+        if (fp.config.allowInput) {
+          fp._input.removeAttribute("readonly");
+          secondInput.removeAttribute("readonly");
+        } else {
+          secondInput.setAttribute("readonly", "readonly");
+        }
 
         fp._bind(fp._input, "focus", () => {
           fp.latestSelectedDateObj = fp.selectedDates[0];
@@ -85,14 +99,15 @@ function rangePlugin(config: Config = {}): Plugin {
           fp.jumpToDate(fp.selectedDates[0]);
         });
 
-        fp._bind(fp._input, "keydown", (e: KeyboardEvent) => {
-          if ((e as KeyboardEvent).key === "Enter")
-            fp.setDate(
-              [fp._input.value, fp.selectedDates[1]],
-              true,
-              dateFormat
-            );
-        });
+        if (fp.config.allowInput)
+          fp._bind(fp._input, "keydown", (e: KeyboardEvent) => {
+            if ((e as KeyboardEvent).key === "Enter")
+              fp.setDate(
+                [fp._input.value, fp.selectedDates[1]],
+                true,
+                dateFormat
+              );
+          });
 
         fp.setDate(fp.selectedDates, false);
         plugin.onValueUpdate(fp.selectedDates);

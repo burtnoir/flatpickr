@@ -1,7 +1,8 @@
-import flatpickr from "index";
-import { Russian } from "l10n/ru";
+import flatpickr from "../index";
+import { Russian } from "../l10n/ru";
 import { Instance, DayElement } from "../types/instance";
 import { Options, DateRangeLimit } from "../types/options";
+import confirmDatePlugin from "../plugins/confirmDate/confirmDate";
 
 flatpickr.defaultConfig.animate = false;
 flatpickr.defaultConfig.closeOnSelect = true;
@@ -656,43 +657,7 @@ describe("flatpickr", () => {
       fp.open();
       fp.input.focus();
 
-      simulate(
-        "keydown",
-        window.document.body,
-        { keyCode: 37, bubbles: true }, // "ArrowLeft"
-        KeyboardEvent
-      );
-      let dayElem = document.activeElement as DayElement;
-      expect(fp.currentMonth).toBe(0);
-      expect(dayElem.dateObj.getDate()).toEqual(1);
-
-      simulate("keydown", document.activeElement, { keyCode: 37 }); // "ArrowLeft"
-      expect(fp.currentMonth).toBe(11);
-      expect(fp.currentYear).toBe(2016);
-      dayElem = document.activeElement as DayElement;
-      expect(dayElem.dateObj.getDate()).toEqual(7);
-
-      simulate("keydown", document.activeElement, { keyCode: 39 }); // "ArrowRight"
-      dayElem = document.activeElement as DayElement;
-      expect(dayElem.dateObj.getDate()).toEqual(1);
-      expect(fp.currentMonth).toBe(0);
-      expect(fp.currentYear).toBe(2017);
-
-      simulate("keydown", document.activeElement, { keyCode: 38 }); // "ArrowUp"
-      simulate("keydown", document.activeElement, { keyCode: 38 }); // "ArrowUp"
-      expect(fp.currentMonth).toBe(11);
-      expect(fp.currentYear).toBe(2016);
-      dayElem = document.activeElement as DayElement;
-      expect(dayElem.dateObj.getDate()).toEqual(25);
-
-      simulate("keydown", document.activeElement, { keyCode: 40 }); // "ArrowDown"
-      simulate("keydown", document.activeElement, { keyCode: 40 }); // "ArrowDown"
-      expect(fp.currentMonth).toBe(0);
-      expect(fp.currentYear).toBe(2017);
-      dayElem = document.activeElement as DayElement;
-      expect(dayElem.dateObj.getDate()).toEqual(1);
-
-      simulate("keydown", document.activeElement, {
+      simulate("keydown", document.body, {
         // "ArrowRight"
         keyCode: 39,
         ctrlKey: true,
@@ -700,12 +665,12 @@ describe("flatpickr", () => {
       expect(fp.currentMonth).toBe(1);
       expect(fp.currentYear).toBe(2017);
 
-      simulate("keydown", document.activeElement, {
+      simulate("keydown", document.body, {
         // "ArrowLeft"
         keyCode: 37,
         ctrlKey: true,
       });
-      simulate("keydown", document.activeElement, {
+      simulate("keydown", document.body, {
         // "ArrowLeft"
         keyCode: 37,
         ctrlKey: true,
@@ -857,6 +822,13 @@ describe("flatpickr", () => {
           expect(mobileInput.disabled).toBe(true);
           expect(mobileInput.required).toBe(true);
         });
+
+        it("with confirmDatePlugin", () => {
+          mockAgent = "Android";
+          createInstance({
+            plugins: [confirmDatePlugin({})],
+          });
+        });
       });
     });
 
@@ -867,10 +839,6 @@ describe("flatpickr", () => {
         expect(date.getFullYear()).toEqual(2016);
         expect(date.getMonth()).toEqual(9);
         expect(date.getDate()).toEqual(10);
-
-        expect((fp.hourElement as HTMLInputElement).value).toEqual("03");
-        expect((fp.minuteElement as HTMLInputElement).value).toEqual("30");
-        expect((fp.amPM as HTMLSpanElement).textContent).toEqual("AM");
       }
 
       createInstance({
@@ -890,7 +858,7 @@ describe("flatpickr", () => {
     it("year input", () => {
       createInstance();
       fp.currentYearElement.value = "2000";
-      simulate("keyup", fp.currentYearElement);
+      simulate("keyup", fp.currentYearElement, KeyboardEvent);
 
       expect(fp.currentYear).toEqual(2000);
       incrementTime("currentYearElement", 1);
@@ -936,7 +904,7 @@ describe("flatpickr", () => {
 
       fp.hourElement.value = "9";
       simulate("input", fp.hourElement);
-      jest.runAllTimers();
+      simulate("blur", fp.hourElement);
       expect(fp.hourElement.value).toEqual("09");
     });
 
@@ -970,13 +938,13 @@ describe("flatpickr", () => {
       hourElem.value = "2";
       simulate("input", hourElem);
 
-      jest.runAllTimers();
+      simulate("blur", hourElem);
 
       expect(hourElem.value).toEqual("03");
 
       minuteElem.value = "00";
       simulate("input", minuteElem);
-      jest.runAllTimers();
+      simulate("blur", minuteElem);
       expect(minuteElem.value).toEqual("35");
     });
 
@@ -1052,6 +1020,7 @@ describe("flatpickr", () => {
       });
 
       expect(fp.selectedDates.length).toEqual(0);
+      fp.open();
       incrementTime("minuteElement", 1);
 
       expect(fp.selectedDates.length).toEqual(1);
@@ -1066,11 +1035,49 @@ describe("flatpickr", () => {
         minDate: "23:59",
       });
 
+      fp.open();
+
       simulate("increment", fp.minuteElement as Node, {
         delta: 1,
       });
 
       expect(fp.input.value.length).toBeGreaterThan(0);
+    });
+
+    it("time picker: default hours/mins", () => {
+      createInstance({
+        noCalendar: true,
+        enableTime: true,
+        dateFormat: "H:i",
+        minDate: "02:30",
+        defaultHour: 2,
+        defaultMinute: 45,
+      });
+
+      fp.open();
+      expect(fp.input.value).toEqual("02:45");
+
+      createInstance({
+        enableTime: true,
+        minDate: new Date().setHours(2, 30),
+        defaultHour: 12,
+        defaultMinute: 45,
+      });
+
+      simulate("mousedown", <DayElement>fp.todayDateElem, { which: 1 });
+      expect((<Date>fp.latestSelectedDateObj).getHours()).toEqual(12);
+      expect((<Date>fp.latestSelectedDateObj).getMinutes()).toEqual(45);
+
+      createInstance({
+        enableTime: true,
+        minDate: new Date().setHours(6, 30),
+        defaultHour: 3,
+        defaultMinute: 0,
+      });
+
+      simulate("mousedown", <DayElement>fp.todayDateElem, { which: 1 });
+      expect((<Date>fp.latestSelectedDateObj).getHours()).toEqual(6);
+      expect((<Date>fp.latestSelectedDateObj).getMinutes()).toEqual(30);
     });
 
     it("time picker: minDate + bounds", () => {
@@ -1079,7 +1086,10 @@ describe("flatpickr", () => {
         enableTime: true,
         dateFormat: "H:i",
         minDate: "02:30",
+        defaultDate: "3:30",
       });
+
+      fp.open();
 
       incrementTime("hourElement", -1);
       expect(fp.input.value).toEqual("02:30");
@@ -1095,6 +1105,7 @@ describe("flatpickr", () => {
         dateFormat: "H:i",
         minDate: "02:30",
         defaultDate: "3:30",
+        defaultHour: 9,
       });
 
       const [hours, minutes, amPM] = [
@@ -1123,10 +1134,13 @@ describe("flatpickr", () => {
       expect(hours.value).toBe("03");
 
       fp.setDate("05:30");
-      expect(hours.value).toBe("02");
+      // date exceeds maxDate - value is reset to maxDate's
+      expect(hours.value).toBe("04");
 
       fp.setDate("00:30");
-      expect(hours.value).toBe("02");
+      // date lower than minDate - value is reset to defaultHour
+      // since defaultHour > maxDate, value is reset to maxDate
+      expect(hours.value).toBe("04");
     });
 
     it("should delay time input validation on keydown", () => {
@@ -1149,9 +1163,7 @@ describe("flatpickr", () => {
 
       simulate("input", hours);
       expect(hours.value).toEqual("1");
-
-      jest.runAllTimers();
-      jest.runAllTimers();
+      simulate("blur", hours);
       expect(hours.value).toEqual("16");
     });
 
@@ -1220,10 +1232,11 @@ describe("flatpickr", () => {
 
       simulate("mouseover", fp.days.childNodes[32]);
       expect(day(21).classList.contains("startRange")).toEqual(true);
-      expect(day(32).classList.contains("endRange")).toEqual(true);
 
-      for (let i = 22; i < 32; i++)
-        expect(day(i).classList.contains("inRange")).toEqual(true);
+      for (let i = 0; i < 42; i++)
+        expect(day(i).classList.contains("inRange")).toEqual(i > 21 && i < 32);
+
+      expect(day(32).classList.contains("endRange")).toEqual(true);
 
       fp.clear();
       fp.set("disable", ["2016-1-12", "2016-1-20"]);
@@ -1247,29 +1260,30 @@ describe("flatpickr", () => {
       expect(fp.input.value).toEqual("2016-01-13 to 2016-01-17");
     });
 
-    it("show and hide prev/next month arrows", () => {
-      const isArrowVisible = (which: "prevMonthNav" | "nextMonthNav") =>
-        fp[which].style.display !== "none";
+    it("adds disabled class to disabled prev/next month arrows", () => {
+      const isArrowDisabled = (which: "prevMonthNav" | "nextMonthNav") =>
+        fp[which].classList.contains("disabled");
       createInstance({
         minDate: "2099-1-1",
         maxDate: "2099-3-4",
-        mode: "range",
+        inline: true,
       });
 
       expect(fp.currentMonth).toBe(0);
-      expect(isArrowVisible("prevMonthNav")).toBe(false);
-      expect(isArrowVisible("nextMonthNav")).toBe(true);
-
-      simulate("mousedown", fp.days.childNodes[10], { which: 1 }, MouseEvent); // select some date
-      jest.runOnlyPendingTimers();
-      simulate("mousedown", fp.nextMonthNav, { which: 1 }, MouseEvent);
-
-      expect(isArrowVisible("prevMonthNav")).toBe(true);
-      expect(isArrowVisible("nextMonthNav")).toBe(true);
+      expect(isArrowDisabled("prevMonthNav")).toBe(true);
+      expect(isArrowDisabled("nextMonthNav")).toBe(false);
 
       simulate("mousedown", fp.nextMonthNav, { which: 1 }, MouseEvent);
-      expect(isArrowVisible("prevMonthNav")).toBe(true);
-      expect(isArrowVisible("nextMonthNav")).toBe(false);
+
+      expect(fp.currentMonth).toBe(1);
+      expect(isArrowDisabled("prevMonthNav")).toBe(false);
+      expect(isArrowDisabled("nextMonthNav")).toBe(false);
+
+      simulate("mousedown", fp.nextMonthNav, { which: 1 }, MouseEvent);
+
+      expect(fp.currentMonth).toBe(2);
+      expect(isArrowDisabled("prevMonthNav")).toBe(false);
+      expect(isArrowDisabled("nextMonthNav")).toBe(true);
     });
   });
 

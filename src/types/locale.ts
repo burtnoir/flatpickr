@@ -54,6 +54,7 @@ export type Locale = {
   scrollTitle: string;
   toggleTitle: string;
   amPM: [string, string];
+  yearAriaLabel: string;
 };
 
 export type CustomLocale = {
@@ -64,6 +65,7 @@ export type CustomLocale = {
   weekAbbreviation?: Locale["weekAbbreviation"];
   toggleTitle?: Locale["toggleTitle"];
   scrollTitle?: Locale["scrollTitle"];
+  yearAriaLabel?: string;
   amPM?: Locale["amPM"];
   weekdays: {
     shorthand: [string, string, string, string, string, string, string];
@@ -103,6 +105,8 @@ export type CustomLocale = {
 
 export type key =
   | "ar"
+  | "at"
+  | "be"
   | "bg"
   | "bn"
   | "cat"
@@ -117,6 +121,7 @@ export type key =
   | "et"
   | "fa"
   | "fi"
+  | "fo"
   | "fr"
   | "gr"
   | "he"
@@ -124,9 +129,12 @@ export type key =
   | "hr"
   | "hu"
   | "id"
+  | "is"
   | "it"
   | "ja"
   | "ko"
+  | "km"
+  | "kz"
   | "lt"
   | "lv"
   | "mk"

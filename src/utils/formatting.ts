@@ -1,7 +1,6 @@
 import { int, pad } from "../utils";
 import { Locale } from "../types/locale";
 import { ParsedOptions } from "../types/options";
-import { monthToStr } from "../utils/dates";
 
 export type token =
   | "D"
@@ -29,6 +28,12 @@ export type token =
 
 const do_nothing = (): undefined => undefined;
 
+export const monthToStr = (
+  monthNumber: number,
+  shorthand: boolean,
+  locale: Locale
+) => locale.months[shorthand ? "shorthand" : "longhand"][monthNumber];
+
 export type RevFormatFn = (
   date: Date,
   data: string,
@@ -51,7 +56,7 @@ export const revFormat: RevFormat = {
   },
   K: (dateObj: Date, amPM: string, locale: Locale) => {
     dateObj.setHours(
-      dateObj.getHours() % 12 +
+      (dateObj.getHours() % 12) +
         12 * int(new RegExp(locale.amPM[1], "i").test(amPM))
     );
   },

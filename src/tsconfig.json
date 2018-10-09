@@ -1,9 +1,8 @@
 {
   "compilerOptions": {
     "strict": true,
-    "noImplicitAny": true,
-    "target": "es2015",
-    "module": "commonjs",
+    "target": "ES2015",
+    "module": "ES2015",
     "moduleResolution": "node",
     "noUnusedLocals": true,
     "noUnusedParameters": true,
@@ -13,6 +12,10 @@
       "dom",
       "es2017.object",
       "esnext.asynciterable"
-    ]
-  }
+    ],
+    "baseUrl": "./"
+  },
+  "exclude": [
+    "./__tests__",
+  ]
 }

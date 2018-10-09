@@ -1,5 +1,4 @@
-import * as fs from "fs";
-import { promisify } from "util";
+import * as fs from "fs-extra";
 import { exec as execCommand } from "child_process";
 
 import * as glob from "glob";
@@ -11,7 +10,8 @@ import * as stylus from "stylus";
 import * as stylus_autoprefixer from "autoprefixer-stylus";
 
 import * as rollup from "rollup";
-import * as rollup_typescript from "rollup-plugin-typescript2";
+import * as rollup_typescript from "rollup-plugin-typescript";
+import * as rollup_babel from "rollup-plugin-babel";
 
 import * as path from "path";
 
@@ -29,29 +29,42 @@ const customModuleNames: Record<string, string> = {
   confirmDate: "confirmDatePlugin",
 };
 
-const rollupConfig = {
-  inputOptions: {
+const watchers: chokidar.FSWatcher[] = [];
+
+interface RollupOptions {
+  input: rollup.InputOptions;
+  output: rollup.OutputOptions;
+}
+
+const rollupConfig: RollupOptions = {
+  input: {
     input: "",
     plugins: [
-      (rollup_typescript as any)({
-        abortOnError: false,
-        cacheRoot: `/tmp/.rpt2_cache`,
-        clean: true,
+      rollup_typescript({
+        // abortOnError: false,
+        // cacheRoot: `/tmp/.rpt2_cache`,
+        // clean: true,
+        tsconfig: path.resolve("src/tsconfig.json"),
+        typescript: require("typescript"),
+      }),
+      rollup_babel({
+        runtimeHelpers: true,
       }),
     ],
   },
-  outputOptions: {
+  output: {
     file: "",
     format: "umd",
+    exports: "auto",
     banner: `/* flatpickr v${pkg.version}, @license MIT */`,
+    sourcemap: false,
   },
 };
 
 function logErr(e: Error | string) {
   console.error(e);
+  console.trace();
 }
-
-const writeFileAsync = promisify(fs.writeFile);
 
 function startRollup(dev = false) {
   return execCommand(`npm run rollup:${dev ? "start" : "build"}`);
@@ -81,35 +94,22 @@ function uglify(src: string) {
       preamble: version,
       comments: false,
     },
-  } as any);
+  });
 
-  (minified as any).error && console.log((minified as any).error);
+  if (minified.error) {
+    logErr(minified.error);
+  }
   return minified.code;
 }
 
 async function buildScripts() {
   try {
-    const transpiled = await readFileAsync("./dist/flatpickr.js");
-    writeFileAsync("./dist/flatpickr.min.js", uglify(transpiled));
+    const transpiled = await fs.readFile("./dist/flatpickr.js");
+    fs.writeFile("./dist/flatpickr.min.js", uglify(transpiled.toString()));
     console.log("done.");
   } catch (e) {
     logErr(e);
   }
-}
-
-function copyFile(source: string, target: string): Promise<any> {
-  var rd = fs.createReadStream(source);
-  var wr = fs.createWriteStream(target);
-  return new Promise(function(resolve, reject) {
-    rd.on("error", reject);
-    wr.on("error", reject);
-    wr.on("finish", resolve);
-    rd.pipe(wr);
-  }).catch(function(error) {
-    rd.destroy();
-    wr.end();
-    throw error;
-  });
 }
 
 function buildExtras(folder: "plugins" | "l10n") {
@@ -124,24 +124,42 @@ function buildExtras(folder: "plugins" | "l10n") {
     await Promise.all([
       ...src_paths.map(async sourcePath => {
         const bundle = await rollup.rollup({
-          ...rollupConfig.inputOptions,
+          ...rollupConfig.input,
+          cache: undefined,
           input: sourcePath,
-        } as any);
+        });
 
         const fileName = path.basename(sourcePath, path.extname(sourcePath));
 
         return bundle.write({
-          ...rollupConfig.outputOptions,
+          ...rollupConfig.output,
+          exports: folder === "l10n" ? "named" : "default",
+          sourcemap: false,
           file: sourcePath.replace("src", "dist").replace(".ts", ".js"),
           name: customModuleNames[fileName] || fileName,
-        } as any);
+        });
       }),
-      ...css_paths.map(p => copyFile(p, p.replace("src", "dist"))),
+      ...(css_paths.map(p => fs.copy(p, p.replace("src", "dist"))) as any),
     ]);
 
     console.log("done.");
   };
 }
+
+// function debounce(func: Function, wait: number, immediate?:boolean) {
+//   var timeout: number | NodeJS.Timer | null;
+//   return function(this: Function) {
+//     var context = this, args = arguments;
+//     var later = function() {
+//       timeout = null;
+//       if (!immediate) func.apply(context, args);
+//     };
+//     var callNow = immediate && !timeout;
+//     clearTimeout(timeout as number);
+//     timeout = setTimeout(later, wait);
+//     if (callNow) func.apply(context, args);
+//   };
+// };
 
 async function transpileStyle(src: string, compress = false) {
   return new Promise<string>((resolve, reject) => {
@@ -175,9 +193,9 @@ async function buildStyle() {
       transpileStyle(src_ie),
     ]);
 
-    writeFileAsync("./dist/flatpickr.css", style);
-    writeFileAsync("./dist/flatpickr.min.css", min);
-    writeFileAsync("./dist/ie.css", ie);
+    fs.writeFile("./dist/flatpickr.css", style);
+    fs.writeFile("./dist/flatpickr.min.css", min);
+    fs.writeFile("./dist/ie.css", ie);
   } catch (e) {
     logErr(e);
   }
@@ -192,7 +210,7 @@ async function buildThemes() {
 
     readFileAsync(themePath)
       .then(transpileStyle)
-      .then(css => writeFileAsync(`./dist/themes/${match[1]}.css`, css));
+      .then(css => fs.writeFile(`./dist/themes/${match[1]}.css`, css));
   });
 }
 
@@ -203,26 +221,34 @@ function setupWatchers() {
     buildThemes();
   });
   watch("./src/style/themes", buildThemes);
+  watch("./src", (path: string) => {
+    execCommand(`npm run fmt -- ${path}`, {
+      cwd: __dirname,
+    });
+  });
 }
 
-function watch<F extends () => void>(path: string, cb: F) {
-  chokidar
-    .watch(path, {
-      awaitWriteFinish: {
-        stabilityThreshold: 100,
-      },
-      usePolling: true,
-    })
-    .on("change", cb)
-    .on("error", logErr);
+function watch(path: string, cb: (path: string) => void) {
+  watchers.push(
+    chokidar
+      .watch(path, {
+        // awaitWriteFinish: {
+        //   stabilityThreshold: 500,
+        // },
+        //usePolling: true,
+      })
+      .on("change", cb)
+      .on("error", logErr)
+  );
 }
 
 function start() {
   const devMode = process.argv.indexOf("--dev") > -1;
   const proc = startRollup(devMode);
 
-  function exit() {
-    !proc.killed && proc.kill();
+  function exit(signal: string) {
+    !proc.killed && proc.kill(signal);
+    watchers.forEach(w => w.close());
   }
 
   function log(data: string) {
@@ -232,7 +258,7 @@ function start() {
   proc.stdout.on("data", log);
   proc.stderr.on("data", log);
 
-  proc.stdout.on("readable", () => {
+  proc.on("exit", () => {
     buildScripts();
   });
 
